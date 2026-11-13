@@ -1,20 +1,31 @@
+
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Create the ScreenGui
+-- Settings
+local resetKeybind = Enum.KeyCode.R
+local waitingForKey = false
+
+-- Remove old GUI if it exists
+local oldGui = playerGui:FindFirstChild("ResetGuiHub")
+if oldGui then
+    oldGui:Destroy()
+end
+
+-- Create ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ResetGuiHub"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
--- Create the Outer Window Frame (Container)
+-- Main Window
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 220, 0, 110)
-mainFrame.Position = UDim2.new(0.5, -110, 0.4, -55)
+mainFrame.Size = UDim2.new(0, 220, 0, 160)
+mainFrame.Position = UDim2.new(0.5, -110, 0.4, -80)
 mainFrame.BackgroundColor3 = Color3.fromRGB(36, 36, 37)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
@@ -23,7 +34,7 @@ local frameCorner = Instance.new("UICorner")
 frameCorner.CornerRadius = UDim.new(0, 8)
 frameCorner.Parent = mainFrame
 
--- Title Bar for the Window
+-- Title Bar
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Name = "TitleLabel"
 titleLabel.Size = UDim2.new(1, 0, 0, 30)
@@ -40,7 +51,7 @@ local titleCorner = Instance.new("UICorner")
 titleCorner.CornerRadius = UDim.new(0, 8)
 titleCorner.Parent = titleLabel
 
--- Create the Reset Button (Nested inside the Outer Window)
+-- Reset Button
 local resetButton = Instance.new("TextButton")
 resetButton.Name = "ResetButton"
 resetButton.Size = UDim2.new(1, -20, 0, 45)
@@ -56,46 +67,103 @@ local buttonCorner = Instance.new("UICorner")
 buttonCorner.CornerRadius = UDim.new(0, 6)
 buttonCorner.Parent = resetButton
 
--- Function to handle resetting the character
+-- Keybind Button
+local keybindButton = Instance.new("TextButton")
+keybindButton.Name = "KeybindButton"
+keybindButton.Size = UDim2.new(1, -20, 0, 35)
+keybindButton.Position = UDim2.new(0, 10, 0, 105)
+keybindButton.BackgroundColor3 = Color3.fromRGB(55, 55, 58)
+keybindButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+keybindButton.TextSize = 14
+keybindButton.Font = Enum.Font.SourceSansBold
+keybindButton.Text = "Reset Keybind: R"
+keybindButton.Parent = mainFrame
+
+local keybindCorner = Instance.new("UICorner")
+keybindCorner.CornerRadius = UDim.new(0, 6)
+keybindCorner.Parent = keybindButton
+
+-- Reset Function
 local function resetCharacter()
-	local character = player.Character
-	if character then
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			humanoid.Health = 0
-		end
-	end
+    local character = player.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Health = 0
+        end
+    end
 end
 
--- Connect the button click event to the reset function
+-- Reset Button Click
 resetButton.MouseButton1Click:Connect(resetCharacter)
 
--- Dragging Logic (Applied to the whole outer window frame)
+-- Change Keybind
+keybindButton.MouseButton1Click:Connect(function()
+    waitingForKey = true
+    keybindButton.Text = "Press any key..."
+    keybindButton.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+end)
+
+-- Keyboard Input
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if waitingForKey then
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            resetKeybind = input.KeyCode
+            waitingForKey = false
+
+            keybindButton.Text = "Reset Keybind: " .. resetKeybind.Name
+            keybindButton.BackgroundColor3 = Color3.fromRGB(55, 55, 58)
+        end
+        return
+    end
+
+    if gameProcessed then
+        return
+    end
+
+    if input.KeyCode == resetKeybind then
+        resetCharacter()
+    end
+end)
+
+-- Dragging Logic
 local dragging = false
-local dragStart, startPos
+local dragStart
+local startPos
+local dragInput
 
 mainFrame.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		dragStart = input.Position
-		startPos = mainFrame.Position
-		
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-		local delta = input.Position - dragStart
-		mainFrame.Position = UDim2.new(
-			startPos.X.Scale, 
-			startPos.X.Offset + delta.X, 
-			startPos.Y.Scale, 
-			startPos.Y.Offset + delta.Y
-		)
-	end
+    if dragging and input == dragInput then
+        local delta = input.Position - dragStart
+
+        mainFrame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
 end)
